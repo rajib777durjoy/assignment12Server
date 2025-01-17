@@ -51,7 +51,7 @@ async function run() {
       res.send({token})
     })
  // user related api//
-    app.post('/user',async(req,res)=>{
+    app.post('/user',varifytoken,async(req,res)=>{
         const userId=req.body;
         const user=await usersDb.findOne({email:userId.email})
         if(user){
@@ -69,7 +69,7 @@ app.post('/trainer',async(req,res)=>{
   // console.log(result)
   res.send(result)
 })
-app.get('/trainer',varifytoken,async(req,res)=>{
+app.get('/trainer',async(req,res)=>{
   const result= await trainerDb.find().toArray()
   // console.log(result)
   res.send(result)
