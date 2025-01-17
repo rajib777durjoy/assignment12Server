@@ -10,6 +10,22 @@ app.use(cors())
 app.use(express.json())
 
 
+const varifytoken=(req,res,next)=>{
+  console.log('varifytoken',req.headers.authorization)
+  if(!req.headers.authorization){
+    return res.status(401).send({message:'Unauthorize access'})
+  }
+  const token =req.headers.authorization.split(' ')[1];
+ 
+  jwt.verify(token,process.env.Access_Token_key,(err,decoded)=>{
+    if(err){
+     return res.status(401).send({message:'Unauthorize access'})
+    }
+    req.decoded=decoded;
+    next();
+  })
+  
+}
 const uri = `mongodb+srv://${process.env.User_key}:${process.env.User_pass}@cluster0.u87dt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -25,13 +41,16 @@ async function run() {
   try {
     const database = client.db("fitnessZone");
     const usersDb = database.collection("userCollection");
+    const trainerDb=database.collection('trainerCollection');
    
-    app.post('jwt',async(req,res)=>{
+    // token create related api//
+    app.post('/jwt',async(req,res)=>{
       const userEmail= req.body;
+      console.log(userEmail)
       const token=jwt.sign(userEmail,process.env.Access_Token_key, { expiresIn: '1h' });
-      res.
+      res.send({token})
     })
-
+ // user related api//
     app.post('/user',async(req,res)=>{
         const userId=req.body;
         const user=await usersDb.findOne({email:userId.email})
@@ -39,10 +58,22 @@ async function run() {
             return res.send({message:'you already user'})
         }
         const result=await usersDb.insertOne(userId);
-        console.log(result)
+   
         res.send(result)
     })
-
+// trainer related api //
+app.post('/trainer',async(req,res)=>{
+  const data= req.body;
+  // console.log(data)
+  const result= await trainerDb.insertOne(data);
+  // console.log(result)
+  res.send(result)
+})
+app.get('/trainer',varifytoken,async(req,res)=>{
+  const result= await trainerDb.find().toArray()
+  // console.log(result)
+  res.send(result)
+})
 
 
 
