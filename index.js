@@ -1,5 +1,5 @@
 const express=require('express')
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const cors=require('cors')
 const jwt = require('jsonwebtoken');
 const port=process.env.PORT || 9000;
@@ -13,13 +13,13 @@ app.use(express.json())
 const varifytoken=(req,res,next)=>{
   console.log('varifytoken',req.headers.authorization)
   if(!req.headers.authorization){
-    return res.status(401).send({message:'Unauthorize access'})
+    return res.status(401).send({message:'forbidden access'})
   }
   const token =req.headers.authorization.split(' ')[1];
  
   jwt.verify(token,process.env.Access_Token_key,(err,decoded)=>{
     if(err){
-     return res.status(401).send({message:'Unauthorize access'})
+     return res.status(401).send({message:'forbidden access'})
     }
     req.decoded=decoded;
     next();
@@ -46,7 +46,7 @@ async function run() {
     // token create related api//
     app.post('/jwt',async(req,res)=>{
       const userEmail= req.body;
-      console.log(userEmail)
+      // console.log(userEmail)
       const token=jwt.sign(userEmail,process.env.Access_Token_key, { expiresIn: '1h' });
       res.send({token})
     })
@@ -71,7 +71,14 @@ app.post('/trainer',async(req,res)=>{
 })
 app.get('/trainer',async(req,res)=>{
   const result= await trainerDb.find().toArray()
-  // console.log(result)
+  res.send(result)
+})
+/// trainer details ///
+app.get('/trainerDetails/:id',async(req,res)=>{
+  const id= req.params.id;
+  // console.log(id);
+  const query={_id: new ObjectId(id)}
+  const result= await trainerDb.findOne(query);
   res.send(result)
 })
 
