@@ -41,7 +41,7 @@ async function run() {
     const database = client.db("fitnessZone");
     const usersDb = database.collection("userCollection");
     const trainerDb=database.collection('trainerCollection');
-    const allTrainer=database.collection('alltrainerCollection');
+    const ClassDb=database.collection('ClassCollection');
     const BookDetails=database.collection('trainerBooked');
     // token create related api//
     app.post('/jwt',async(req,res)=>{
@@ -160,8 +160,9 @@ app.delete('/applied/:id',async(req,res)=>{
 // add Class (Admin)//
 app.post('/addClass',async(req,res)=>{
   const data = req.body;
-  const result= await allTrainer.insertOne(data)
-  console.log(data)
+  const result= await ClassDb.insertOne(data)
+  console.log(result)
+  res.send(result)
 })
 /// set availabel slot ///
 app.post('/slot',async(req,res)=>{
