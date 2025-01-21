@@ -9,7 +9,7 @@ const app=express()
 app.use(cors())
 app.use(express.json())
 
-
+/// token varify///
 const varifytoken=(req,res,next)=>{
   console.log('varifytoken',req.headers.authorization)
   if(!req.headers.authorization){
@@ -25,6 +25,42 @@ const varifytoken=(req,res,next)=>{
     next();
   }) 
 }
+
+/// varify Admin ///
+const varifyAdmin=async(req,res,next)=>{
+  const email= req.decoded.email;
+  const query={email:email}
+  const result=await usersDb.findOne(query) 
+  const user=result?.role === 'admin';
+  if(!user){
+    return res.status(403).send({message:'forbidden access'})
+  }
+  next()
+}
+/// varify trainer ///
+// const varifyTrainer=async(req,res,next)=>{
+//   const email= req.decoded.email;
+//   const query={email:email}
+//   const result=await usersDb.findOne(query) 
+//   const user=result?.role === 'trainer';
+//   if(!user){
+//     return res.status(403).send({message:'forbidden access'})
+//   }
+//   next()
+// }
+
+/// varifyMember
+// const varifyMember=async(req,res,next)=>{
+//   const email= req.decoded.email;
+//   const query={email:email}
+//   const result=await usersDb.findOne(query) 
+//   const user=result?.role === 'member';
+//   if(!user){
+//     return res.status(403).send({message:'forbidden access'})
+//   }
+//   next()
+// }
+
 const uri = `mongodb+srv://${process.env.User_key}:${process.env.User_pass}@cluster0.u87dt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -38,11 +74,15 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+
     const database = client.db("fitnessZone");
     const usersDb = database.collection("userCollection");
     const trainerDb=database.collection('trainerCollection');
+    const SaveTrainer=database.collection('saveToTrainer')
     const ClassDb=database.collection('ClassCollection');
     const BookDetails=database.collection('trainerBooked');
+    const AllTrainer=database.collection('alltrainer')
+
     // token create related api//
     app.post('/jwt',async(req,res)=>{
       const userEmail= req.body;
@@ -50,13 +90,14 @@ async function run() {
       const token=jwt.sign(userEmail,process.env.Access_Token_key, { expiresIn: '1h' });
       res.send({token})
     })
-  // check admin check //
+
+  // check admin check // todo: set user
   app.get('/userCheck/:email',async(req,res)=>{
     const email= req.params.email;
     const query={email:email};
     const result= await usersDb.findOne(query);
     // console.log(result)
-    let user='member'
+    let user='local';
     // if(result.role==="admin"){
     //    user='admin'
     // }
@@ -81,14 +122,14 @@ async function run() {
         res.send(result)
     })
   /// all newsletter subcriber (admin page) ///
-  app.get('/allnewsletter/:email',async(req,res)=>{
+  app.get('/allnewsletter/:email',varifytoken,varifyAdmin,async(req,res)=>{
     const userEmail= req.params.email;
     const query={email:{$ne:userEmail}}
     const result = await usersDb.find(query).toArray()
     console.log(result)
     res.send(result)
   })
-// trainer related api //
+// trainer related api // todo:set varify 
 app.post('/trainer',async(req,res)=>{
   const data= req.body;
   // console.log(data)
@@ -96,11 +137,12 @@ app.post('/trainer',async(req,res)=>{
   // console.log(result)
   res.send(result)
 })
+/// ???SaveTrainer
 app.get('/trainer',async(req,res)=>{
   const result= await trainerDb.find().toArray()
   res.send(result)
 })
-/// trainer details ///
+/// trainer details /// todo:SaveTrainer 
 app.get('/trainerDetails/:id',async(req,res)=>{
   const id= req.params.id;
   // console.log(id);
@@ -133,7 +175,7 @@ app.get('/details/:id',async(req,res)=>{
   // console.log(details)
   res.send(details)
 })
-// applied status update///
+// applied status update/// todo: saveTrainer
 app.patch('/statusChange',async(req,res)=>{
   const data=req.body;
   console.log('status',data.status)
@@ -148,18 +190,57 @@ app.patch('/statusChange',async(req,res)=>{
   const result= await trainerDb.updateOne(query,update,options)
   res.send(result)
 })
-/// applied remove ///
+/// applied remove /// ---- recheck needed
 app.delete('/applied/:id',async(req,res)=>{
   const Id= req.params.id;
-  // console.log(Id)
+  
   const query={_id:new ObjectId(Id)}
+  const trainerCheck= await AllTrainer.findOne(query)
+  if(trainerCheck){
+    return res.send({message:'You Already trainer'})
+  }
+  const trainerFind=await trainerDb.findOne(query)
+  const setTrainer= await AllTrainer.insertOne(trainerFind)
   const result= await trainerDb.deleteOne(query)
-  console.log('remove',result)
+
   res.send(result)
 })
+// searching by class name//
+app.get('/searchClass',async(req,res)=>{
+  const searchbyname= req.query.search;
+  const result= await ClassDb.find({name:{$regex:searchbyname}}).toArray()
+  res.send(result)
+})
+// get allClass with trainer Class// todo: customize from;
+app.get('/allClass',async(req,res)=>{
+  const skipNum= parseInt(req.query.page);
+  const limitNum= parseInt(req.query.size);
+  const result = await ClassDb.find().skip(skipNum*limitNum).limit(limitNum).toArray();
+  res.send(result)
+ 
+  // const addItem= await trainerDb.aggregate([
+  //   { $unwind: "$skills" },
+  //   {
+  //     $lookup: {
+  //       from: 'ClassDb',
+  //       localField: 'skills',
+  //       foreignField: 'name',
+  //       as: 'detailsInfo'
+  //     }
+  //   },
+   
+  // ]).toArray();
+  // res.send(addItem);
+})
+app.get('/totalclass',async(req,res)=>{
+  const totalPage= await ClassDb.estimatedDocumentCount()
+  res.send({totalPage})
+})
+
 // add Class (Admin)//
-app.post('/addClass',async(req,res)=>{
+app.post('/addclass',async(req,res)=>{
   const data = req.body;
+  console.log(data)
   const result= await ClassDb.insertOne(data)
   console.log(result)
   res.send(result)
