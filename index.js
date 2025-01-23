@@ -81,8 +81,8 @@ async function run() {
     const SaveTrainer=database.collection('saveToTrainer')
     const ClassDb=database.collection('ClassCollection');
     const BookDetails=database.collection('trainerBooked');
-    const AllTrainer=database.collection('alltrainer')
-
+    const AllTrainer=database.collection('alltrainer');
+    const bookpackage=database.collection('packagedb');
     // token create related api//
     app.post('/jwt',async(req,res)=>{
       const userEmail= req.body;
@@ -92,23 +92,21 @@ async function run() {
     })
 
   // check admin check // todo: set user
-  app.get('/userCheck/:email',async(req,res)=>{
-    const email= req.params.email;
+  app.get('/userCheck/:email',varifytoken,async(req,res)=>{
+    const email= req.params?.email;
     const query={email:email};
-    const result= await usersDb.findOne(query);
-    // console.log(result)
-    let user='local';
-    // if(result.role==="admin"){
-    //    user='admin'
-    // }
-    // else if(result.role==='trainer'){
-    //     user ='trainer'
-    // }
-    // else if(result.role === 'member'){
-    //   user ='member'
-    // }
-    // console.log('user',user)
-    res.send(user)
+    const result= await usersDb.findOne(query)
+   
+    if(result?.role==="admin"){
+    return res.send({user:"admin"})
+    }
+     if(result?.role==='trainer'){
+    return res.send({user:'trainer'})
+    }
+  if(result?.role === 'member'){
+     return res.send({user:'member'})  
+    }
+   res.send({user:'normal'})
   })
  // user related api//
     app.post('/user',varifytoken,async(req,res)=>{
@@ -130,7 +128,7 @@ async function run() {
     res.send(result)
   })
 // trainer related api // todo:set varify 
-app.post('/trainer',async(req,res)=>{
+app.post('/trainer',varifytoken,async(req,res)=>{
   const data= req.body;
   // console.log(data)
   const result= await trainerDb.insertOne(data);
@@ -142,9 +140,9 @@ app.get('/trainer',async(req,res)=>{
   const result= await trainerDb.find().toArray()
   res.send(result)
 })
-/// trainer details /// todo:SaveTrainer 
+/// trainer details /// todo:SaveTrainer ?
 app.get('/trainerDetails/:id',async(req,res)=>{
-  const id= req.params.id;
+  const id=req.params.id;
   // console.log(id);
   const query={_id: new ObjectId(id)}
   const result= await trainerDb.findOne(query);
@@ -166,8 +164,21 @@ app.get('/appliedTrainer/:email',async(req,res)=>{
   // console.log('applied trainer',result)
   res.send(result)
 })
+/// booked package related api //
+app.post('/packageDetails',async(req,res)=>{
+  const data=req.body;
+  const result= await bookpackage.insertOne(data)
+  res.send(result)
+})
+app.get('/packageInfo/:id',async(req,res)=>{
+   const Id= req.params.id;
+   const query={ _id:new ObjectId(Id)}
+   const result= await bookpackage.findOne(query);
+   console.log(result)
+   res.send(result)
+})
 
-/// applied details /// todo: all trainer db change///
+/// applied details /// todo: all trainer db change///?
 app.get('/details/:id',async(req,res)=>{
   const ids= req.params.id;
   const query={_id:new ObjectId(ids)}
@@ -187,13 +198,18 @@ app.patch('/statusChange',async(req,res)=>{
     }
   }
   const options = { upsert: true };
-  const result= await trainerDb.updateOne(query,update,options)
-  res.send(result)
+  // const result= await trainerDb.updateOne(query,update,options)
+  const getTrainer= await trainerDb.findOne(query);
+  /// todo: ekane getTrainer ar modde data.id ta patate hobe. tarpor
+  //  check kore insertOne() kortehobe.
+  const pushData= await SaveTrainer.insertOne(getTrainer)
+  const updateUser= await SaveTrainer.updateOne(query,update,options)
+  console.log(updateUser)
+  res.send(updateUser)
 })
 /// applied remove /// ---- recheck needed
 app.delete('/applied/:id',async(req,res)=>{
   const Id= req.params.id;
-  
   const query={_id:new ObjectId(Id)}
   const trainerCheck= await AllTrainer.findOne(query)
   if(trainerCheck){
