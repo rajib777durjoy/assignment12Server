@@ -4,6 +4,7 @@ const cors=require('cors')
 const jwt = require('jsonwebtoken');
 const port=process.env.PORT || 9000;
 require('dotenv').config()
+const stripe=require('stripe')(process.env.Stripe_Secret_key);
 const app=express()
 
 app.use(cors())
@@ -13,13 +14,13 @@ app.use(express.json())
 const varifytoken=(req,res,next)=>{
   console.log('varifytoken',req.headers.authorization)
   if(!req.headers.authorization){
-    return res.status(401).send({message:'forbidden access'})
+    return res.status(401).send({message:'Unauthorized access'})
   }
   const token =req.headers.authorization.split(' ')[1];
  
   jwt.verify(token,process.env.Access_Token_key,(err,decoded)=>{
     if(err){
-     return res.status(401).send({message:'forbidden access'})
+     return res.status(403).send({message:'forbidden access'})
     }
     req.decoded=decoded;
     next();
@@ -83,6 +84,7 @@ async function run() {
     const BookDetails=database.collection('trainerBooked');
     const AllTrainer=database.collection('alltrainer');
     const bookpackage=database.collection('packagedb');
+    const paymentDb=database.collection('paymentCollection');
     // token create related api//
     app.post('/jwt',async(req,res)=>{
       const userEmail= req.body;
@@ -200,8 +202,6 @@ app.patch('/statusChange',async(req,res)=>{
   const options = { upsert: true };
   // const result= await trainerDb.updateOne(query,update,options)
   const getTrainer= await trainerDb.findOne(query);
-  /// todo: ekane getTrainer ar modde data.id ta patate hobe. tarpor
-  //  check kore insertOne() kortehobe.
   const pushData= await SaveTrainer.insertOne(getTrainer)
   const updateUser= await SaveTrainer.updateOne(query,update,options)
   console.log(updateUser)
@@ -232,21 +232,32 @@ app.get('/allClass',async(req,res)=>{
   const skipNum= parseInt(req.query.page);
   const limitNum= parseInt(req.query.size);
   const result = await ClassDb.find().skip(skipNum*limitNum).limit(limitNum).toArray();
-  res.send(result)
+  // res.send(result)
  
-  // const addItem= await trainerDb.aggregate([
-  //   { $unwind: "$skills" },
-  //   {
-  //     $lookup: {
-  //       from: 'ClassDb',
-  //       localField: 'skills',
-  //       foreignField: 'name',
-  //       as: 'detailsInfo'
-  //     }
-  //   },
-   
-  // ]).toArray();
-  // res.send(addItem);
+  const addItem= await trainerDb.aggregate([
+    { $unwind: "$skills" },
+    {
+      $lookup: {
+        from: 'ClassCollection',
+        localField: 'skills',
+        foreignField: 'name',
+        as:'detailsInfo'
+      }
+    },
+    // {
+    //   $project: {
+    //     name: 1,
+    //     skills: 1,
+    //     matchedClasses: { name: 1 },
+    //   },
+    // },
+    // {
+    //   $match: {
+    //     "matchedClasses.0": { $exists: true },
+    //   },
+    // },
+  ]).toArray();
+  res.send(addItem);
 })
 app.get('/totalclass',async(req,res)=>{
   const totalPage= await ClassDb.estimatedDocumentCount()
@@ -258,7 +269,7 @@ app.post('/addclass',async(req,res)=>{
   const data = req.body;
   console.log(data)
   const result= await ClassDb.insertOne(data)
-  console.log(result)
+  // console.log(result)
   res.send(result)
 })
 /// set availabel slot ///
@@ -270,15 +281,73 @@ app.post('/slot',async(req,res)=>{
     slot:data.slot
   }
   const query=await BookDetails.findOne(check)
-  console.log(query)
+  // console.log(query)
   if(query){
     return res.send({message:"Your Trainer Booked"})
   }
   const result= await BookDetails.insertOne(data);
  
-  console.log(result)
+  // console.log(result)
   res.send(result)
 })
+
+/// payment intent ///
+ app.post('/CreatePaymentIntent',async(req,res)=>{
+  const {price}=req.body;
+  console.log(price)
+  const amount=parseInt(price * 100)
+  const paymentIntent =await stripe.paymentIntents.create({
+    amount:amount,
+    currency:'usd',
+    payment_method_types:['card']
+  });
+  res.send({
+    clientSecret:paymentIntent.client_secret
+  })
+ })
+ 
+ /// payment related api /// todo:add booked count ++
+ app.post('/payments',async(req,res)=>{
+  const payment= req.body;
+  const result=await paymentDb.insertOne(payment);
+  if(!result){
+    return res.send({message:'payment unsuccessful'})
+  }
+  res.send(result)
+ })
+
+ /// payment details ///
+ app.get('/allpayment',async(req,res)=>{
+  // const result= await paymentDb.aggregate([
+  //   {
+  //     $addFields: {
+  //       price: { $toInt: "$price" } 
+  //     }
+  //   },
+  //   // {
+  //   //   $sort: {
+  //   //     price: -1 
+  //   //   }
+  //   // },
+  //   {
+  //     $group: {
+  //       _id: null, 
+  //       totalBalance: { $sum: "$price" }, 
+  //      allTransactions: { $push: "$$ROOT" } 
+  //     }
+  //   },
+    
+  //    {
+  //     $project: {
+  //       _id: 0, 
+  //       totalBalance: 1,
+  //       allTransactions: 1
+  //     }
+  //   }
+  // ]).toArray()
+  const result = await paymentDb.find().toArray()
+  res.send(result)
+ })
 
 
     // Connect the client to the server	(optional starting in v4.7)
