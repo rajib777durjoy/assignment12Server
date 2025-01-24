@@ -82,7 +82,6 @@ async function run() {
     const SaveTrainer=database.collection('saveToTrainer')
     const ClassDb=database.collection('ClassCollection');
     const BookDetails=database.collection('trainerBooked');
-    const AllTrainer=database.collection('alltrainer');
     const bookpackage=database.collection('packagedb');
     const paymentDb=database.collection('paymentCollection');
     // token create related api//
@@ -121,6 +120,11 @@ async function run() {
    
         res.send(result)
     })
+   /// team related api //
+   app.get('/team',async(req,res)=>{
+    const result= await SaveTrainer.find().limit(3).toArray()
+    res.send(result)
+   })
   /// all newsletter subcriber (admin page) ///
   app.get('/allnewsletter/:email',varifytoken,varifyAdmin,async(req,res)=>{
     const userEmail= req.params.email;
@@ -139,7 +143,7 @@ app.post('/trainer',varifytoken,async(req,res)=>{
 })
 /// ???SaveTrainer
 app.get('/trainer',async(req,res)=>{
-  const result= await trainerDb.find().toArray()
+  const result= await SaveTrainer.find().toArray()
   res.send(result)
 })
 /// trainer details /// todo:SaveTrainer ?
@@ -147,7 +151,7 @@ app.get('/trainerDetails/:id',async(req,res)=>{
   const id=req.params.id;
   // console.log(id);
   const query={_id: new ObjectId(id)}
-  const result= await trainerDb.findOne(query);
+  const result= await SaveTrainer.findOne(query);
   res.send(result)
 })
 /// trainer booked related api //
@@ -188,11 +192,12 @@ app.get('/details/:id',async(req,res)=>{
   // console.log(details)
   res.send(details)
 })
-// applied status update/// todo: saveTrainer
+// applied status update/// todo: saveTrainer-- error
 app.patch('/statusChange',async(req,res)=>{
   const data=req.body;
+  console.log('sopon id',data?.id)
   console.log('status',data.status)
-  const query={_id:new ObjectId(data.id)}
+  const query={_id:new ObjectId(data?.id)}
   const update={
     $set:{
       status:data.status,
@@ -204,21 +209,21 @@ app.patch('/statusChange',async(req,res)=>{
   const getTrainer= await trainerDb.findOne(query);
   const pushData= await SaveTrainer.insertOne(getTrainer)
   const updateUser= await SaveTrainer.updateOne(query,update,options)
-  console.log(updateUser)
+  console.log(getTrainer)
   res.send(updateUser)
 })
-/// applied remove /// ---- recheck needed
+/// applied remove /// ---- recheck needed-- error
 app.delete('/applied/:id',async(req,res)=>{
   const Id= req.params.id;
   const query={_id:new ObjectId(Id)}
-  const trainerCheck= await AllTrainer.findOne(query)
+  const trainerCheck= await SaveTrainer.findOne(query)
   if(trainerCheck){
-    return res.send({message:'You Already trainer'})
+    const result= await trainerDb.deleteOne(query)
+    return res.send(result)
   }
   const trainerFind=await trainerDb.findOne(query)
-  const setTrainer= await AllTrainer.insertOne(trainerFind)
+  const setTrainer= await SaveTrainer.insertOne(trainerFind)
   const result= await trainerDb.deleteOne(query)
-
   res.send(result)
 })
 // searching by class name//
@@ -232,9 +237,11 @@ app.get('/allClass',async(req,res)=>{
   const skipNum= parseInt(req.query.page);
   const limitNum= parseInt(req.query.size);
   const result = await ClassDb.find().skip(skipNum*limitNum).limit(limitNum).toArray();
-  // res.send(result)
- 
-  const addItem= await trainerDb.aggregate([
+  res.send(result)
+})
+
+app.get('/classbyTrainer',async(req,res)=>{
+  const addItem= await SaveTrainer.aggregate([
     { $unwind: "$skills" },
     {
       $lookup: {
