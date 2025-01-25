@@ -138,6 +138,7 @@ async function run() {
 /// Add froum related api ///
 app.post('/addFroum',async(req,res)=>{
   const froumdata= req.body;
+  console.log(froumdata)
   const result= await froumDb.insertOne(froumdata)
   res.send(result)
 })
@@ -392,6 +393,51 @@ app.post('/slot',async(req,res)=>{
     res.send(result)
   })
 
+/// all forums page get ///
+app.get('/allforum',async(req,res)=>{
+  const skipNum= parseInt(req.query?.page);
+  const limitNum= parseInt(req.query?.size);
+  const result= await froumDb.find().skip(skipNum*limitNum).limit(limitNum).toArray();
+  res.send(result)
+})
+app.get('/totalforum',async(req,res)=>{
+  const total= await froumDb.estimatedDocumentCount();
+  res.send({total})
+})
+/// fourm page voting up //
+app.patch('/voteUp/:id',async(req,res)=>{
+  const email= req.body.email;
+  const Id= req.params.id;
+  console.log(Id,email)
+  const query = {_id: new ObjectId(Id)}
+  const updateVote={
+    $inc:{Vote:1},
+    $set:{votarEmail:email}
+  }
+  const options = { upsert: true };
+  const check= await froumDb.findOne(query);
+  if(check.votarEmail=== email){
+    return res.send({message:'you already liked'})
+  }
+  const result = await froumDb.updateOne(query,updateVote,options)
+  res.send(result)
+})
+/// forum page voting down ///
+app.patch('/voteDown/:id',async(req,res)=>{
+  const Id= req.params.id;
+  const email= req.body.email;
+  const query= {_id: new ObjectId(Id)}
+  const updateVote={
+    $inc:{Vote:-1},
+    $unset:{votarEmail:email}
+  }
+  const check= await froumDb.findOne(query);
+  if(check.votarEmail!== email){
+    return res.send({message:'You already voting (-1)'})
+  }
+  const result = await froumDb.updateOne(query,updateVote)
+  res.send(result)
+})
 
 
     // Connect the client to the server	(optional starting in v4.7)
