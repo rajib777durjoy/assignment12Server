@@ -314,8 +314,10 @@ app.post('/slot',async(req,res)=>{
   const check={
     bookId:data.bookId,
     name:data.name,
-    slot:data.slot
+    slot:data.slot,
+    useremail:data?.useremail
   }
+  // console.log(data)
   const query=await BookDetails.findOne(check)
   // console.log(query)
   if(query){
@@ -384,6 +386,12 @@ app.post('/slot',async(req,res)=>{
   const result = await paymentDb.find().toArray()
   res.send(result)
  })
+ /// get allnewletter subcriber for balance page ///
+  app.get('/Allnewsletter',async(req,res)=>{
+    const result= await usersDb.find().toArray();
+    res.send(result)
+  })
+
 
 
     // Connect the client to the server	(optional starting in v4.7)
