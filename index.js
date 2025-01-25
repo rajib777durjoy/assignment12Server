@@ -28,16 +28,16 @@ const varifytoken=(req,res,next)=>{
 }
 
 /// varify Admin ///
-const varifyAdmin=async(req,res,next)=>{
-  const email= req.decoded.email;
-  const query={email:email}
-  const result=await usersDb.findOne(query) 
-  const user=result?.role === 'admin';
-  if(!user){
-    return res.status(403).send({message:'forbidden access'})
-  }
-  next()
-}
+// const varifyAdmin=async(req,res,next)=>{
+//   const email= req.decoded?.email;
+//   const query={email:email}
+//   const result=await usersDb.findOne(query) 
+//   const user=result?.role === 'admin';
+//   if(!user){
+//     return res.status(403).send({message:'forbidden access'})
+//   }
+//   next()
+// }
 /// varify trainer ///
 // const varifyTrainer=async(req,res,next)=>{
 //   const email= req.decoded.email;
@@ -84,6 +84,8 @@ async function run() {
     const BookDetails=database.collection('trainerBooked');
     const bookpackage=database.collection('packagedb');
     const paymentDb=database.collection('paymentCollection');
+    const froumDb= database.collection('froumCollection');
+    const rejectedData=database.collection('rejectedCollection')
     // token create related api//
     app.post('/jwt',async(req,res)=>{
       const userEmail= req.body;
@@ -126,27 +128,37 @@ async function run() {
     res.send(result)
    })
   /// all newsletter subcriber (admin page) ///
-  app.get('/allnewsletter/:email',varifytoken,varifyAdmin,async(req,res)=>{
+  app.get('/allnewsletter/:email',varifytoken,async(req,res)=>{
     const userEmail= req.params.email;
     const query={email:{$ne:userEmail}}
     const result = await usersDb.find(query).toArray()
     console.log(result)
     res.send(result)
   })
+/// Add froum related api ///
+app.post('/addFroum',async(req,res)=>{
+  const froumdata= req.body;
+  const result= await froumDb.insertOne(froumdata)
+  res.send(result)
+})
 // trainer related api // todo:set varify 
 app.post('/trainer',varifytoken,async(req,res)=>{
   const data= req.body;
-  // console.log(data)
+  console.log(data)
+  const userCheck= await trainerDb.findOne({email:data?.email})
+  if(userCheck){
+   return res.send({message:'your almost request for  be a trainer'})
+  }
   const result= await trainerDb.insertOne(data);
   // console.log(result)
   res.send(result)
 })
-/// ???SaveTrainer
+
 app.get('/trainer',async(req,res)=>{
   const result= await SaveTrainer.find().toArray()
   res.send(result)
 })
-/// trainer details /// todo:SaveTrainer ?
+/// trainer details /// 
 app.get('/trainerDetails/:id',async(req,res)=>{
   const id=req.params.id;
   // console.log(id);
@@ -170,6 +182,22 @@ app.get('/appliedTrainer/:email',async(req,res)=>{
   // console.log('applied trainer',result)
   res.send(result)
 })
+/// applied reject feedback///
+app.post('/feedback',async(req,res)=>{
+  const data= req.body;
+  console.log(data)
+  const result = await rejectedData.insertOne(data)
+  res.send(result)
+})
+
+/// applied rejected ///
+app.delete('/appliedReject/:id',async(req,res)=>{
+  const Id= req.params?.id;
+  console.log(Id)
+  const result = await trainerDb.deleteOne({_id:new ObjectId(Id)})
+  res.send(result)
+})
+
 /// booked package related api //
 app.post('/packageDetails',async(req,res)=>{
   const data=req.body;
@@ -196,21 +224,22 @@ app.get('/details/:id',async(req,res)=>{
 app.patch('/statusChange',async(req,res)=>{
   const data=req.body;
   console.log('sopon id',data?.id)
-  console.log('status',data.status)
+  console.log('status',data?.status)
   const query={_id:new ObjectId(data?.id)}
   const update={
     $set:{
       status:data.status,
-      role:'trainer'
+      role:'trainer',
+      appliedId:data?.id,
     }
   }
   const options = { upsert: true };
-  // const result= await trainerDb.updateOne(query,update,options)
-  const getTrainer= await trainerDb.findOne(query);
-  const pushData= await SaveTrainer.insertOne(getTrainer)
-  const updateUser= await SaveTrainer.updateOne(query,update,options)
-  console.log(getTrainer)
-  res.send(updateUser)
+  const result= await trainerDb.updateOne(query,update,options)
+  // const getTrainer= await trainerDb.findOne(query);
+  // const pushData= await SaveTrainer.insertOne(getTrainer)
+  // const updateUser= await SaveTrainer.updateOne(query,update,options)
+  console.log(result)
+  res.send(result)
 })
 /// applied remove /// ---- recheck needed-- error
 app.delete('/applied/:id',async(req,res)=>{
