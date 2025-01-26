@@ -12,7 +12,7 @@ app.use(express.json())
 
 /// token varify///
 const varifytoken=(req,res,next)=>{
-  console.log('varifytoken',req.headers.authorization)
+  // console.log('varifytoken',req.headers.authorization)
   if(!req.headers.authorization){
     return res.status(401).send({message:'Unauthorized access'})
   }
@@ -127,25 +127,46 @@ async function run() {
     const result= await SaveTrainer.find().limit(3).toArray()
     res.send(result)
    })
-  /// all newsletter subcriber (admin page) ///
+  /// all newsletter subcriber (admin) ///
   app.get('/allnewsletter/:email',varifytoken,async(req,res)=>{
     const userEmail= req.params.email;
     const query={email:{$ne:userEmail}}
     const result = await usersDb.find(query).toArray()
-    console.log(result)
+    // console.log(result)
     res.send(result)
   })
+/// alltrainelist /// (admin)
+app.get('/alltrainerlist',async(req,res)=>{
+  const result= await SaveTrainer.find().toArray()
+  res.send(result)
+})
+app.delete('/trainerRoleChange/:id',async(req,res)=>{
+  const Id= req.params.id;
+  console.log(Id)
+  const query={_id:new ObjectId(Id)};
+  const Update={
+    $set:{
+      role:'member'
+    }
+  }
+  const RoleChange= await SaveTrainer.updateOne(query,Update)
+  const findOne= await SaveTrainer.findOne(query)
+  const setup= await usersDb.insertOne(findOne)
+  const trainerDelete= await SaveTrainer.deleteOne(query)
+  res.send(trainerDelete)
+})
+
 /// Add froum related api ///
 app.post('/addFroum',async(req,res)=>{
   const froumdata= req.body;
-  console.log(froumdata)
+  // console.log(froumdata)
   const result= await froumDb.insertOne(froumdata)
   res.send(result)
 })
 // trainer related api // todo:set varify 
 app.post('/trainer',varifytoken,async(req,res)=>{
   const data= req.body;
-  console.log(data)
+  // console.log(data)
   const userCheck= await trainerDb.findOne({email:data?.email})
   if(userCheck){
    return res.send({message:'your almost request for  be a trainer'})
@@ -186,7 +207,7 @@ app.get('/appliedTrainer/:email',async(req,res)=>{
 /// applied reject feedback///
 app.post('/feedback',async(req,res)=>{
   const data= req.body;
-  console.log(data)
+  // console.log(data)
   const result = await rejectedData.insertOne(data)
   res.send(result)
 })
@@ -194,7 +215,7 @@ app.post('/feedback',async(req,res)=>{
 /// applied rejected ///
 app.delete('/appliedReject/:id',async(req,res)=>{
   const Id= req.params?.id;
-  console.log(Id)
+  // console.log(Id)
   const result = await trainerDb.deleteOne({_id:new ObjectId(Id)})
   res.send(result)
 })
@@ -209,7 +230,7 @@ app.get('/packageInfo/:id',async(req,res)=>{
    const Id= req.params.id;
    const query={ _id:new ObjectId(Id)}
    const result= await bookpackage.findOne(query);
-   console.log(result)
+  //  console.log(result)
    res.send(result)
 })
 
@@ -224,8 +245,8 @@ app.get('/details/:id',async(req,res)=>{
 // applied status update/// todo: saveTrainer-- error
 app.patch('/statusChange',async(req,res)=>{
   const data=req.body;
-  console.log('sopon id',data?.id)
-  console.log('status',data?.status)
+  // console.log('sopon id',data?.id)
+  // console.log('status',data?.status)
   const query={_id:new ObjectId(data?.id)}
   const update={
     $set:{
@@ -239,7 +260,7 @@ app.patch('/statusChange',async(req,res)=>{
   // const getTrainer= await trainerDb.findOne(query);
   // const pushData= await SaveTrainer.insertOne(getTrainer)
   // const updateUser= await SaveTrainer.updateOne(query,update,options)
-  console.log(result)
+  // console.log(result)
   res.send(result)
 })
 /// applied remove /// ---- recheck needed-- error
@@ -304,7 +325,7 @@ app.get('/totalclass',async(req,res)=>{
 // add Class (Admin)//
 app.post('/addclass',async(req,res)=>{
   const data = req.body;
-  console.log(data)
+  // console.log(data)
   const result= await ClassDb.insertOne(data)
   // console.log(result)
   res.send(result)
@@ -333,7 +354,7 @@ app.post('/slot',async(req,res)=>{
 /// payment intent ///
  app.post('/CreatePaymentIntent',async(req,res)=>{
   const {price}=req.body;
-  console.log(price)
+  // console.log(price)
   const amount=parseInt(price * 100)
   const paymentIntent =await stripe.paymentIntents.create({
     amount:amount,
@@ -408,7 +429,7 @@ app.get('/totalforum',async(req,res)=>{
 app.patch('/voteUp/:id',async(req,res)=>{
   const email= req.body.email;
   const Id= req.params.id;
-  console.log(Id,email)
+  // console.log(Id,email)
   const query = {_id: new ObjectId(Id)}
   const updateVote={
     $inc:{Vote:1},
