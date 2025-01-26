@@ -99,7 +99,6 @@ async function run() {
     const email= req.params?.email;
     const query={email:email};
     const result= await usersDb.findOne(query)
-   
     if(result?.role==="admin"){
     return res.send({user:"admin"})
     }
@@ -458,6 +457,22 @@ app.patch('/voteDown/:id',async(req,res)=>{
   }
   const result = await froumDb.updateOne(query,updateVote)
   res.send(result)
+})
+
+/// Activity page (Member) ///
+ /// Get applied role trainer data ///
+app.get('/activity',async(req,res)=>{
+  const result= await trainerDb.find().toArray()
+  res.send(result)
+})
+app.get('/rejected',async(req,res)=>{
+  const result = await rejectedData.find().toArray()
+  res.send(result)
+})
+app.get('/feedback/:_id',async(req,res)=>{
+   const id= req.params._id;
+   const result = await rejectedData.findOne({_id:new ObjectId(id)})
+   res.send(result)
 })
 
 
