@@ -7,7 +7,9 @@ require('dotenv').config()
 const stripe=require('stripe')(process.env.Stripe_Secret_key);
 const app=express()
 
-app.use(cors())
+app.use(cors({
+  origin:['https://finesszone.web.app',"http://localhost:5175"]
+}))
 app.use(express.json())
 
 /// token varify///
@@ -155,13 +157,7 @@ app.delete('/trainerRoleChange/:id',async(req,res)=>{
   res.send(trainerDelete)
 })
 
-/// Add froum related api ///
-app.post('/addFroum',async(req,res)=>{
-  const froumdata= req.body;
-  // console.log(froumdata)
-  const result= await froumDb.insertOne(froumdata)
-  res.send(result)
-})
+
 // trainer related api // todo:set varify 
 app.post('/trainer',varifytoken,async(req,res)=>{
   const data= req.body;
@@ -334,7 +330,7 @@ app.post('/slot',async(req,res)=>{
   const data= req.body;
   const check={
     bookId:data.bookId,
-    name:data.name,
+    // name:data.name,
     slot:data.slot,
     useremail:data?.useremail
   }
@@ -342,7 +338,7 @@ app.post('/slot',async(req,res)=>{
   const query=await BookDetails.findOne(check)
   // console.log(query)
   if(query){
-    return res.send({message:"Your Trainer Booked"})
+    return res.send({message:"You already booking this Trainer "})
   }
   const result= await BookDetails.insertOne(data);
  
@@ -413,6 +409,13 @@ app.post('/slot',async(req,res)=>{
     res.send(result)
   })
 
+
+/// Add froum related api ///
+app.post('/addFroum',async(req,res)=>{
+  const froumdata= req.body;
+  const result= await froumDb.insertOne(froumdata)
+  res.send(result)
+})
 /// all forums page get ///
 app.get('/allforum',async(req,res)=>{
   const skipNum= parseInt(req.query?.page);
@@ -458,7 +461,13 @@ app.patch('/voteDown/:id',async(req,res)=>{
   const result = await froumDb.updateOne(query,updateVote)
   res.send(result)
 })
+/// forum page badge ///
+// app.get('/forumbadge',async(req,res)=>{
+//   console.log(req.body)
+// })
+ 
 
+    
 /// Activity page (Member) ///
  /// Get applied role trainer data ///
 app.get('/activity',async(req,res)=>{
@@ -475,6 +484,29 @@ app.get('/feedback/:_id',async(req,res)=>{
    res.send(result)
 })
 
+// profile page (member)///
+app.get('/profile/:email',async(req,res)=>{
+  const Email= req.params.email;
+  const result = await usersDb.findOne({email:Email});
+  res.send(result)
+})
+
+// profile update //
+app.put('/update/:id',async(req,res)=>{
+  const Id= req.params.id;
+  const data= req.body;
+  const query={_id:new ObjectId(Id)}
+  const options = { upsert: true };
+  const updateData={
+    $set:{
+      name:req.body?.name,
+      email:req.body?.email,
+      image:req.body?.image
+    }
+  }
+  const result = await usersDb.updateOne(query,updateData,options)
+  res.send(result)
+})
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
