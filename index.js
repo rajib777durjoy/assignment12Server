@@ -8,7 +8,7 @@ const stripe=require('stripe')(process.env.Stripe_Secret_key);
 const app=express()
 
 app.use(cors({
-  origin:['https://finesszone.web.app',"http://localhost:5175"]
+  origin:["http://localhost:5173",'https://assignment12-f557e.web.app']
 }))
 app.use(express.json())
 
@@ -29,40 +29,9 @@ const varifytoken=(req,res,next)=>{
   }) 
 }
 
-/// varify Admin ///
-// const varifyAdmin=async(req,res,next)=>{
-//   const email= req.decoded?.email;
-//   const query={email:email}
-//   const result=await usersDb.findOne(query) 
-//   const user=result?.role === 'admin';
-//   if(!user){
-//     return res.status(403).send({message:'forbidden access'})
-//   }
-//   next()
-// }
-/// varify trainer ///
-// const varifyTrainer=async(req,res,next)=>{
-//   const email= req.decoded.email;
-//   const query={email:email}
-//   const result=await usersDb.findOne(query) 
-//   const user=result?.role === 'trainer';
-//   if(!user){
-//     return res.status(403).send({message:'forbidden access'})
-//   }
-//   next()
-// }
 
-/// varifyMember
-// const varifyMember=async(req,res,next)=>{
-//   const email= req.decoded.email;
-//   const query={email:email}
-//   const result=await usersDb.findOne(query) 
-//   const user=result?.role === 'member';
-//   if(!user){
-//     return res.status(403).send({message:'forbidden access'})
-//   }
-//   next()
-// }
+
+
 
 const uri = `mongodb+srv://${process.env.User_key}:${process.env.User_pass}@cluster0.u87dt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -79,6 +48,7 @@ async function run() {
   try {
 
     const database = client.db("fitnessZone");
+    const newsletterDb=database.collection('subcriberCollection')
     const usersDb = database.collection("userCollection");
     const trainerDb=database.collection('trainerCollection');
     const SaveTrainer=database.collection('saveToTrainer')
@@ -88,6 +58,54 @@ async function run() {
     const paymentDb=database.collection('paymentCollection');
     const froumDb= database.collection('froumCollection');
     const rejectedData=database.collection('rejectedCollection')
+    const reviewDb =database.collection('reviewCollection')
+    const varifyAdmin=async(req,res,next)=>{
+      const email= req.decoded?.email;
+      const query={email:email}
+      const result=await usersDb.findOne(query) 
+      // console.log('user',result)
+      const user=result?.role === 'admin';
+      if(!user){
+        return res.status(403).send({message:'forbidden access'})
+      }
+      next()
+    }
+    /// varifyMember
+const varifyMember=async(req,res,next)=>{
+  const email= req.decoded.email;
+  const query={email:email}
+  const result=await usersDb.findOne(query) 
+  const user=result?.role === 'member';
+  if(!user){
+    return res.status(403).send({message:'forbidden access'})
+  }
+  next()
+}
+
+/// varify admin and trainer ///
+const varifyBoth=async(req,res,next)=>{
+  const email= req.decoded.email;
+  const query={email:email}
+  const result=await usersDb.findOne(query) 
+  const trainer= await SaveTrainer.findOne(query)
+  const user=result?.role === 'admin' || trainer?.role === 'trainer';
+  if(!user){
+    return res.status(403).send({message:'forbidden access'})
+  }
+  next()
+}
+
+// varify trainer ///
+const varifyTrainer=async(req,res,next)=>{
+  const email= req.decoded.email;
+  const query={email:email}
+  const result=await SaveTrainer.findOne(query) 
+  const user=result?.role === 'trainer';
+  if(!user){
+    return res.status(403).send({message:'forbidden access'})
+  }
+  next()
+}
     // token create related api//
     app.post('/jwt',async(req,res)=>{
       const userEmail= req.body;
@@ -113,9 +131,9 @@ async function run() {
    res.send({user:'normal'})
   })
  // user related api//
-    app.post('/user',varifytoken,async(req,res)=>{
+    app.post('/user',async(req,res)=>{
         const userId=req.body;
-        const user=await usersDb.findOne({email:userId.email})
+        const user=await usersDb.findOne({email:userId?.email})
         if(user){
             return res.send({message:'you already user'})
         }
@@ -123,6 +141,13 @@ async function run() {
    
         res.send(result)
     })
+/// newletter page///
+app.post('/subcribe',varifytoken,async(req,res)=>{
+  const subcribeInfo= req.body;
+  const result =await newsletterDb.insertOne(subcribeInfo)
+  res.send(result)
+})
+
    /// team related api //
    app.get('/team',async(req,res)=>{
     const result= await SaveTrainer.find().limit(3).toArray()
@@ -132,7 +157,7 @@ async function run() {
   app.get('/allnewsletter/:email',varifytoken,async(req,res)=>{
     const userEmail= req.params.email;
     const query={email:{$ne:userEmail}}
-    const result = await usersDb.find(query).toArray()
+    const result = await newsletterDb.find(query).toArray()
     // console.log(result)
     res.send(result)
   })
@@ -158,7 +183,7 @@ app.delete('/trainerRoleChange/:id',async(req,res)=>{
 })
 
 
-// trainer related api // todo:set varify 
+// trainer related api // 
 app.post('/trainer',varifytoken,async(req,res)=>{
   const data= req.body;
   // console.log(data)
@@ -184,7 +209,7 @@ app.get('/trainerDetails/:id',async(req,res)=>{
   res.send(result)
 })
 /// trainer booked related api //
-app.get('/bookedData/:id',async(req,res)=>{
+app.get('/bookedData/:id',varifytoken,async(req,res)=>{
      const ids= req.params.id;
      const query={_id:new ObjectId(ids)}
      const result = await BookDetails.findOne(query)
@@ -192,7 +217,7 @@ app.get('/bookedData/:id',async(req,res)=>{
      res.send(result)
 })
 // applied trainer (admin page) ///
-app.get('/appliedTrainer/:email',async(req,res)=>{
+app.get('/appliedTrainer/:email',varifytoken,varifyAdmin,async(req,res)=>{
   const useremail= req.params.email;
   const query={email:{$ne:useremail}}
   const result= await trainerDb.find(query).toArray()
@@ -200,7 +225,7 @@ app.get('/appliedTrainer/:email',async(req,res)=>{
   res.send(result)
 })
 /// applied reject feedback///
-app.post('/feedback',async(req,res)=>{
+app.post('/feedback',varifytoken,varifyAdmin,async(req,res)=>{
   const data= req.body;
   // console.log(data)
   const result = await rejectedData.insertOne(data)
@@ -208,7 +233,7 @@ app.post('/feedback',async(req,res)=>{
 })
 
 /// applied rejected ///
-app.delete('/appliedReject/:id',async(req,res)=>{
+app.delete('/appliedReject/:id',varifytoken,varifyAdmin,async(req,res)=>{
   const Id= req.params?.id;
   // console.log(Id)
   const result = await trainerDb.deleteOne({_id:new ObjectId(Id)})
@@ -216,12 +241,12 @@ app.delete('/appliedReject/:id',async(req,res)=>{
 })
 
 /// booked package related api //
-app.post('/packageDetails',async(req,res)=>{
+app.post('/packageDetails',varifytoken,async(req,res)=>{
   const data=req.body;
   const result= await bookpackage.insertOne(data)
   res.send(result)
 })
-app.get('/packageInfo/:id',async(req,res)=>{
+app.get('/packageInfo/:id',varifytoken,async(req,res)=>{
    const Id= req.params.id;
    const query={ _id:new ObjectId(Id)}
    const result= await bookpackage.findOne(query);
@@ -229,16 +254,16 @@ app.get('/packageInfo/:id',async(req,res)=>{
    res.send(result)
 })
 
-/// applied details /// todo: all trainer db change///?
-app.get('/details/:id',async(req,res)=>{
+/// applied details /// 
+app.get('/details/:id',varifytoken,varifyAdmin,async(req,res)=>{
   const ids= req.params.id;
   const query={_id:new ObjectId(ids)}
   const details= await trainerDb.findOne(query)
   // console.log(details)
   res.send(details)
 })
-// applied status update/// todo: saveTrainer-- error
-app.patch('/statusChange',async(req,res)=>{
+// applied status update/// 
+app.patch('/statusChange',varifytoken,varifyAdmin,async(req,res)=>{
   const data=req.body;
   // console.log('sopon id',data?.id)
   // console.log('status',data?.status)
@@ -258,9 +283,28 @@ app.patch('/statusChange',async(req,res)=>{
   // console.log(result)
   res.send(result)
 })
-/// applied remove /// ---- recheck needed-- error
-app.delete('/applied/:id',async(req,res)=>{
+/// setTo userDb //
+app.post('/setTouserDb',async(req,res)=>{
+  const data= req.body;
+  const check= await usersDb.find({email:data?.email}).toArray();
+  console.log('check',check)
+  if(check){
+    const update={
+      $set:{
+        role:'trainer'
+      }
+    }
+    const setValue= await usersDb.updateOne({email:data.email},update);
+    console.log('setvalue',setValue)
+    return res.send(setValue)
+  }
+  const result = await usersDb.insertOne(data);
+  res.send(result)
+})
+/// applied remove ///
+app.delete('/applied/:id',varifytoken,varifyAdmin,async(req,res)=>{
   const Id= req.params.id;
+  console.log('delete',Id)
   const query={_id:new ObjectId(Id)}
   const trainerCheck= await SaveTrainer.findOne(query)
   if(trainerCheck){
@@ -286,45 +330,25 @@ app.get('/allClass',async(req,res)=>{
   res.send(result)
 })
 
-app.get('/classbyTrainer',async(req,res)=>{
-  const addItem= await SaveTrainer.aggregate([
-    { $unwind: "$skills" },
-    {
-      $lookup: {
-        from: 'ClassCollection',
-        localField: 'skills',
-        foreignField: 'name',
-        as:'detailsInfo'
-      }
-    },
-    // {
-    //   $project: {
-    //     name: 1,
-    //     skills: 1,
-    //     matchedClasses: { name: 1 },
-    //   },
-    // },
-    // {
-    //   $match: {
-    //     "matchedClasses.0": { $exists: true },
-    //   },
-    // },
-  ]).toArray();
-  res.send(addItem);
-})
+// app.get('/classbyTrainer/:class',async(req,res)=>{
+//   const className= req.params.class;
+//   const addItem= await SaveTrainer.find({Class:className})
+//   res.send(addItem);
+// })
 app.get('/totalclass',async(req,res)=>{
   const totalPage= await ClassDb.estimatedDocumentCount()
   res.send({totalPage})
 })
 
 // add Class (Admin)//
-app.post('/addclass',async(req,res)=>{
+app.post('/addclass',varifytoken,varifyAdmin,async(req,res)=>{
   const data = req.body;
   // console.log(data)
   const result= await ClassDb.insertOne(data)
   // console.log(result)
   res.send(result)
 })
+
 /// set availabel slot ///
 app.post('/slot',async(req,res)=>{
   const data= req.body;
@@ -361,8 +385,8 @@ app.post('/slot',async(req,res)=>{
   })
  })
  
- /// payment related api /// todo:add booked count ++
- app.post('/payments',async(req,res)=>{
+ /// payment related api /// 
+ app.post('/payments',varifytoken,async(req,res)=>{
   const payment= req.body;
   const result=await paymentDb.insertOne(payment);
   if(!result){
@@ -372,46 +396,20 @@ app.post('/slot',async(req,res)=>{
  })
 
  /// payment details ///
- app.get('/allpayment',async(req,res)=>{
-  // const result= await paymentDb.aggregate([
-  //   {
-  //     $addFields: {
-  //       price: { $toInt: "$price" } 
-  //     }
-  //   },
-  //   // {
-  //   //   $sort: {
-  //   //     price: -1 
-  //   //   }
-  //   // },
-  //   {
-  //     $group: {
-  //       _id: null, 
-  //       totalBalance: { $sum: "$price" }, 
-  //      allTransactions: { $push: "$$ROOT" } 
-  //     }
-  //   },
-    
-  //    {
-  //     $project: {
-  //       _id: 0, 
-  //       totalBalance: 1,
-  //       allTransactions: 1
-  //     }
-  //   }
-  // ]).toArray()
+ app.get('/allpayment',varifytoken,varifyAdmin,async(req,res)=>{
+  
   const result = await paymentDb.find().toArray()
   res.send(result)
  })
  /// get allnewletter subcriber for balance page ///
-  app.get('/Allnewsletter',async(req,res)=>{
+  app.get('/Allnewsletter',varifytoken,varifyAdmin,async(req,res)=>{
     const result= await usersDb.find().toArray();
     res.send(result)
   })
 
 
 /// Add froum related api ///
-app.post('/addFroum',async(req,res)=>{
+app.post('/addFroum',varifytoken,varifyBoth,async(req,res)=>{
   const froumdata= req.body;
   const result= await froumDb.insertOne(froumdata)
   res.send(result)
@@ -420,6 +418,7 @@ app.post('/addFroum',async(req,res)=>{
 app.get('/allforum',async(req,res)=>{
   const skipNum= parseInt(req.query?.page);
   const limitNum= parseInt(req.query?.size);
+  
   const result= await froumDb.find().skip(skipNum*limitNum).limit(limitNum).toArray();
   res.send(result)
 })
@@ -462,34 +461,36 @@ app.patch('/voteDown/:id',async(req,res)=>{
   res.send(result)
 })
 /// forum page badge ///
-// app.get('/forumbadge',async(req,res)=>{
-//   console.log(req.body)
-// })
- 
 
-    
+/// recent post forum ///
+app.get('/recentforum',async(req,res)=>{
+  const result = await froumDb.find().toArray()
+  res.send(result)
+})
+ 
 /// Activity page (Member) ///
  /// Get applied role trainer data ///
-app.get('/activity',async(req,res)=>{
+app.get('/activity',varifytoken,varifyMember,async(req,res)=>{
   const result= await trainerDb.find().toArray()
   res.send(result)
 })
-app.get('/rejected',async(req,res)=>{
+app.get('/rejected',varifytoken,varifyMember,async(req,res)=>{
   const result = await rejectedData.find().toArray()
   res.send(result)
 })
-app.get('/feedback/:_id',async(req,res)=>{
+app.get('/feedback/:_id',varifytoken,varifyMember,async(req,res)=>{
    const id= req.params._id;
    const result = await rejectedData.findOne({_id:new ObjectId(id)})
    res.send(result)
 })
 
 // profile page (member)///
-app.get('/profile/:email',async(req,res)=>{
+app.get('/profile/:email',varifytoken,varifyMember,async(req,res)=>{
   const Email= req.params.email;
   const result = await usersDb.findOne({email:Email});
   res.send(result)
 })
+
 
 // profile update //
 app.put('/update/:id',async(req,res)=>{
@@ -505,6 +506,39 @@ app.put('/update/:id',async(req,res)=>{
     }
   }
   const result = await usersDb.updateOne(query,updateData,options)
+  res.send(result)
+})
+/// booking trainer ///
+app.get('/bookingTrainer/:email',varifytoken,varifyMember,async(req,res)=>{
+  const Email=req.params.email;
+  const result= await BookDetails.find({useremail:Email}).toArray();
+  // console.log('fdslfjsfks',result)
+  res.send(result)
+})
+
+/// create review /// (public)
+app.post('/review',varifytoken,varifyMember,async(req,res)=>{
+  const data=req.body
+  const result= await reviewDb.insertOne(data)
+  res.send(result)
+})
+// all review ///
+app.get('/allreview',async(req,res)=>{
+  const result= await reviewDb.find().toArray();
+  res.send(result)
+})
+
+/// trainer ///
+// manage slot///
+app.get('/allslot/:email',varifytoken,varifyTrainer,async(req,res)=>{
+ const Email = req.params?.email;
+ const result= await BookDetails.find({trainerEmail:Email}).toArray();
+ res.send(result);
+})
+app.delete('/slotDelete/:id',varifytoken,varifyTrainer,async(req,res)=>{
+  const Id= req.params.id;
+  const query={_id:new ObjectId(Id)}
+  const result = await BookDetails.deleteOne(query)
   res.send(result)
 })
 
