@@ -329,12 +329,17 @@ app.get('/allClass',async(req,res)=>{
   const result = await ClassDb.find().skip(skipNum*limitNum).limit(limitNum).toArray();
   res.send(result)
 })
-
+/// class features ////
+app.get('/featureClass',async(req,res)=>{
+  const result=await ClassDb.find().toArray();
+  res.send(result);
+})
 // app.get('/classbyTrainer/:class',async(req,res)=>{
 //   const className= req.params.class;
 //   const addItem= await SaveTrainer.find({Class:className})
 //   res.send(addItem);
 // })
+
 app.get('/totalclass',async(req,res)=>{
   const totalPage= await ClassDb.estimatedDocumentCount()
   res.send({totalPage})
