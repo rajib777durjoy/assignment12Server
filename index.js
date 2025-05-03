@@ -147,7 +147,6 @@ app.post('/subcribe',varifytoken,async(req,res)=>{
   const result =await newsletterDb.insertOne(subcribeInfo)
   res.send(result)
 })
-
    /// team related api //
    app.get('/team',async(req,res)=>{
     const result= await SaveTrainer.find().limit(3).toArray()
